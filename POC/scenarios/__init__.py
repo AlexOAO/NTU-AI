@@ -1,0 +1,6 @@
+from .medical import MEDICAL_SCENARIO
+from .tomb import TOMB_SCENARIO
+from .romance import ROMANCE_SCENARIO
+
+ALL_SCENARIOS = [MEDICAL_SCENARIO, TOMB_SCENARIO, ROMANCE_SCENARIO]
+SCENARIO_MAP = {s["id"]: s for s in ALL_SCENARIOS}

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>實作備忘錄 — 台語 AI 防詐 POC</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; background: #0f1923; color: #f1f5f9; }
+  h1 { color: #3b82f6; } h2 { color: #f97316; border-bottom: 1px solid #2d3f55; padding-bottom: 8px; }
+  h3 { color: #94a3b8; }
+  code { background: #1a2535; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #38bdf8; }
+  pre { background: #1a2535; padding: 16px; border-radius: 8px; overflow-x: auto; border-left: 3px solid #3b82f6; }
+  pre code { background: none; padding: 0; }
+  .warn { background: #2d1a0e; border-left: 3px solid #f97316; padding: 12px; border-radius: 4px; }
+  .ok { background: #0e2d1a; border-left: 3px solid #22c55e; padding: 12px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #2d3f55; padding: 8px 12px; text-align: left; }
+  th { background: #1a2535; color: #94a3b8; }
+</style>
+</head>
+<body>
+<h1>台語 AI 語音防詐 POC — 實作備忘錄</h1>
+<p><em>最後更新：2026-05-27</em></p>
+
+<h2>1. 快速啟動</h2>
+<pre><code># 安裝依賴（需安裝 uv）
+uv sync
+
+# 設定環境變數
+cp .env.example .env
+# 編輯 .env，填入 ANTHROPIC_API_KEY
+
+# 啟動
+uv run python app.py
+# 開啟 http://localhost:7860</code></pre>
+
+<h2>2. 目錄結構</h2>
+<pre><code>poc/
+├── app.py                     # Gradio 主程式
+├── pyproject.toml             # uv 依賴管理
+├── .env.example               # 環境變數範本
+├── implementation-notes.html  # 本文件
+├── scenarios/
+│   ├── __init__.py
+│   ├── medical.py             # 醫療神藥情境
+│   ├── tomb.py                # 靈骨塔情境
+│   └── romance.py             # 感情詐騙情境
+├── engine/
+│   ├── __init__.py
+│   ├── state_machine.py       # FSM 邏輯
+│   └── prompts.py             # Claude prompt 組裝
+└── api/
+    ├── __init__.py
+    ├── claude_client.py       # Anthropic Claude API
+    ├── tts_client.py          # edge-tts 語音合成
+    └── asr_client.py          # HF Inference API (ASR)</code></pre>
+
+<h2>3. 依賴版本</h2>
+<table>
+  <tr><th>套件</th><th>版本需求</th><th>用途</th></tr>
+  <tr><td>gradio</td><td>&ge;6.15.0</td><td>Web UI</td></tr>
+  <tr><td>anthropic</td><td>&ge;0.40.0</td><td>Claude API</td></tr>
+  <tr><td>edge-tts</td><td>&ge;7.0.0</td><td>免費 TTS (zh-TW)</td></tr>
+  <tr><td>python-dotenv</td><td>&ge;1.0.0</td><td>環境變數</td></tr>
+  <tr><td>httpx</td><td>&ge;0.28.0</td><td>HF API HTTP 呼叫</td></tr>
+  <tr><td>pydub</td><td>&ge;0.25.1</td><td>音訊格式轉換（備用）</td></tr>
+</table>
+
+<h2>4. 環境變數說明</h2>
+<table>
+  <tr><th>變數</th><th>必填</th><th>說明</th></tr>
+  <tr><td><code>ANTHROPIC_API_KEY</code></td><td>✅ 必填</td><td>Claude API 金鑰</td></tr>
+  <tr><td><code>HF_API_TOKEN</code></td><td>選用</td><td>HuggingFace 推論 API 金鑰。未設定時停用 ASR，僅文字輸入</td></tr>
+  <tr><td><code>HF_MODEL_ID</code></td><td>選用</td><td>ASR 模型 ID，預設 <code>openai/whisper-large-v3-turbo</code></td></tr>
+</table>
+
+<div class="warn">
+<strong>⚠️ 台語 Tv0.5 模型</strong><br>
+台南大學 × 國科會的 Whisper-Taiwanese Tv0.5 模型 ID 需另行確認。
+請至 HuggingFace Hub 搜尋 <code>whisper-taiwanese</code> 或 <code>Tv0.5</code>，
+取得正確 model ID 後填入 <code>HF_MODEL_ID</code>。
+</div>
+
+<h2>5. FSM 狀態機</h2>
+<pre><code>intro → s1_trust → s2_problem → s3_solution → s4_pressure → s5_action
+                                                                    ↓
+                                                              exit_win (識詐)
+                                                              exit_lose (受騙)</code></pre>
+<p>任何狀態偵測到識詐語句（<code>escapeDetected=true</code>）立即跳 <code>exit_win</code>。
+s5_action 配合超過 2 回合 → Claude 回傳 <code>exit_lose</code>。</p>
+
+<h2>6. 已知問題 / 待解決</h2>
+<table>
+  <tr><th>#</th><th>問題</th><th>狀態</th></tr>
+  <tr><td>1</td><td>HF Model ID for Tv0.5 需用戶確認</td><td>⏳ 待確認</td></tr>
+  <tr><td>2</td><td>edge-tts 與 Gradio 事件循環整合（ThreadPoolExecutor 方案）</td><td>✅ 已處理</td></tr>
+  <tr><td>3</td><td>gr.Audio autoplay 在 iOS Safari 需用戶互動才能播放</td><td>⏳ 待測試</td></tr>
+</table>
+
+<h2>7. 測試流程</h2>
+<ol>
+  <li>選擇「醫療神藥詐騙」→ 按「開始模擬」→ 確認 AI 開場白顯示 + 語音播放</li>
+  <li>文字輸入「我要掛電話」→ 確認 exit_win 觸發 + 報告頁顯示</li>
+  <li>重新開始 → 連續回應配合詐騙者 5+ 回合 → 確認 exit_lose 觸發</li>
+  <li>若有 HF token → 錄音測試 ASR 流程</li>
+</ol>
+
+<h2>8. TTS 語音對照</h2>
+<table>
+  <tr><th>情境</th><th>語音</th><th>特色</th></tr>
+  <tr><td>醫療神藥 / 靈骨塔</td><td><code>zh-TW-HsiaoChenNeural</code></td><td>女聲，親切台灣腔</td></tr>
+  <tr><td>感情詐騙</td><td><code>zh-TW-YunJheNeural</code></td><td>男聲，溫柔台灣腔</td></tr>
+</table>
+
+<div class="ok">
+<strong>✅ 正式台語 TTS</strong><br>
+edge-tts 使用的是 Microsoft 雲端 Neural TTS（zh-TW），
+雖以國語為主但已是免費方案中最接近台語語調的選項。
+正式版可換用 Azure Custom Neural Voice 或其他台語 TTS 服務。
+</div>
+</body>
+</html>

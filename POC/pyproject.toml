@@ -1,0 +1,18 @@
+[project]
+name = "poc"
+version = "0.1.0"
+description = "台語 AI 語音防詐 POC"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gradio>=6.15.0",
+    "openai>=1.0.0",
+    "transformers>=4.40.0",
+    "torch",
+    "torchaudio",
+    "soundfile",
+    "edge-tts>=7.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    "pydub>=0.25.1",
+]
