@@ -1,44 +1,21 @@
-import asyncio
-import tempfile
 import os
-import edge_tts
 
-VOICE_MAP = {
-    "SCENARIO_MEDICAL": "zh-TW-HsiaoChenNeural",
-    "SCENARIO_TOMB":    "zh-TW-HsiaoChenNeural",
-    "SCENARIO_ROMANCE": "zh-TW-YunJheNeural",
-}
+_client = None
 
 
-def synthesize(text: str, scenario_id: str) -> str:
-    """
-    Synthesize text to speech using edge-tts.
-    Returns path to a temporary MP3 file.
-    """
-    voice = VOICE_MAP.get(scenario_id, "zh-TW-HsiaoChenNeural")
-    return asyncio.run(_synthesize_async(text, voice))
+def _get_client():
+    global _client
+    if _client is None:
+        from gradio_client import Client
+        space_id = os.environ.get("TTS_SPACE_ID", "AlexOAO/tts-nan")
+        _client = Client(space_id)
+    return _client
 
 
-async def _synthesize_async(text: str, voice: str) -> str:
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
-    tmp.close()
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(tmp.name)
-    return tmp.name
-
-
-def synthesize_in_loop(text: str, scenario_id: str) -> str:
-    """
-    Synthesize using the current event loop if one exists (Gradio compatibility).
-    Falls back to asyncio.run() if no loop is running.
-    """
-    voice = VOICE_MAP.get(scenario_id, "zh-TW-HsiaoChenNeural")
+def synthesize_in_loop(text: str, scenario_id: str) -> str | None:
     try:
-        loop = asyncio.get_running_loop()
-        # We are inside a running loop (e.g. Gradio async handler)
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            future = pool.submit(asyncio.run, _synthesize_async(text, voice))
-            return future.result()
-    except RuntimeError:
-        return asyncio.run(_synthesize_async(text, voice))
+        return _get_client().predict(text, api_name="/tts")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return None

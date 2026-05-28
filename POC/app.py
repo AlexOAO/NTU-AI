@@ -589,7 +589,7 @@ with gr.Blocks(title="台語 AI 防詐模擬") as demo:
 
 
 def main():
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, css=CUSTOM_CSS)
+    demo.launch(server_name="127.0.0.1", server_port=7860, share=False, css=CUSTOM_CSS)
 
 
 if __name__ == "__main__":
