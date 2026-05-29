@@ -322,9 +322,9 @@ def start_scenario(scenario_id: str, state: dict) -> tuple:
     new_state["scenario_id"] = scenario_id
 
     # Generate opening line via Claude
+    # System prompt already contains the intro state instructions; just trigger Claude to speak.
     try:
-        intro_prompt = scenario["state_prompts"]["intro"]
-        claude_resp = claude_client.chat(intro_prompt, new_state)
+        claude_resp = claude_client.chat("(開始模擬，請開始你的開場白)", new_state)
         new_state = update_state(new_state, claude_resp)
         reply_text = claude_resp.get("reply", "你好，我是詐騙者。")
         tactics = claude_resp.get("detectedTactics", [])
@@ -589,6 +589,17 @@ with gr.Blocks(title="台語 AI 防詐模擬") as demo:
 
 
 def main():
+    import threading
+    from api import asr_client, tts_client
+
+    # Eager init：app 啟動時就連好兩個 Space，冷啟動移到啟動階段
+    tts_client._get_client()
+    asr_client.warmup()
+
+    # Keep-alive：防止 ASR / TTS Space 睡眠，啟動後立即熱機
+    threading.Thread(target=asr_client._keep_alive_loop, daemon=True).start()
+    threading.Thread(target=tts_client._keep_alive_loop, daemon=True).start()
+
     demo.launch(server_name="127.0.0.1", server_port=7860, share=False, css=CUSTOM_CSS)
 
 

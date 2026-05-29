@@ -12,6 +12,20 @@ def _get_client():
     return _client
 
 
+def warmup():
+    _get_client()
+
+
+def _keep_alive_loop():
+    import time
+    while True:
+        try:
+            _get_client().predict("測", api_name="/tts")
+        except Exception:
+            pass
+        time.sleep(4 * 60)
+
+
 def synthesize_in_loop(text: str, scenario_id: str) -> str | None:
     try:
         return _get_client().predict(text, api_name="/tts")

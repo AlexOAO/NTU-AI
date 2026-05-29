@@ -33,7 +33,7 @@ def chat(user_message: str, session: dict) -> dict:
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
-        max_tokens=512,
+        max_tokens=256,
     )
 
     raw_text = response.choices[0].message.content.strip()

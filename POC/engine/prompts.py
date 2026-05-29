@@ -31,7 +31,7 @@ ESCAPE_DETECTION = """
 RESPONSE_FORMAT = """
 【回應格式】請以合法 JSON 回應，結構如下（不要加 markdown code block）：
 {
-  "reply": "詐騙者的台語回應（50-100字，以繁體中文漢字書寫台語，可夾雜少量國語）",
+  "reply": "詐騙者的台語回應（25-40字，以繁體中文漢字書寫台語，可夾雜少量國語）",
   "nextState": "維持或推進的下一個狀態代碼（intro/s1_trust/s2_problem/s3_solution/s4_pressure/s5_action/exit_lose）",
   "detectedTactics": ["使用的話術類型陣列"],
   "escapeDetected": false,
